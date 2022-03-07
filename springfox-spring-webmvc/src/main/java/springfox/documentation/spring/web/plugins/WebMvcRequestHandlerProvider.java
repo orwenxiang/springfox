@@ -21,6 +21,7 @@ package springfox.documentation.spring.web.plugins;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
+import org.springframework.boot.autoconfigure.web.servlet.WebMvcProperties;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
@@ -37,61 +38,66 @@ import springfox.documentation.spring.web.readers.operation.HandlerMethodResolve
 import javax.servlet.ServletContext;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.StreamSupport;
 
-import static java.util.stream.Collectors.*;
-import static springfox.documentation.builders.BuilderDefaults.*;
-import static springfox.documentation.spi.service.contexts.Orderings.*;
-import static springfox.documentation.spring.web.paths.Paths.*;
+import static java.util.stream.Collectors.toList;
+import static springfox.documentation.builders.BuilderDefaults.nullToEmptyList;
+import static springfox.documentation.spi.service.contexts.Orderings.byPatternsCondition;
+import static springfox.documentation.spring.web.paths.Paths.ROOT;
 
 @Component
 @Order(Ordered.HIGHEST_PRECEDENCE)
 @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
 @Conditional(OnServletBasedWebApplication.class)
 public class WebMvcRequestHandlerProvider implements RequestHandlerProvider {
-  private final List<RequestMappingInfoHandlerMapping> handlerMappings;
-  private final HandlerMethodResolver methodResolver;
-  private final String contextPath;
+    private static final String INTEGRATION_REQUEST_MAPPING_CLASS_NAME = "org.springframework.integration.http" +
+            ".inbound.IntegrationRequestMappingHandlerMapping";
+    private final WebMvcProperties webMvcProperties;
+    private final List<RequestMappingInfoHandlerMapping> handlerMappings;
+    private final HandlerMethodResolver methodResolver;
+    private final String contextPath;
 
-  @Autowired
-  public WebMvcRequestHandlerProvider(
-      Optional<ServletContext> servletContext,
-      HandlerMethodResolver methodResolver,
-      List<RequestMappingInfoHandlerMapping> handlerMappings) {
-    this.handlerMappings = handlerMappings;
-    this.methodResolver = methodResolver;
-    this.contextPath = servletContext
-        .map(ServletContext::getContextPath)
-        .orElse(ROOT);
-  }
+    @Autowired
+    public WebMvcRequestHandlerProvider(
+            WebMvcProperties webMvcProperties,
+            Optional<ServletContext> servletContext,
+            HandlerMethodResolver methodResolver,
+            List<RequestMappingInfoHandlerMapping> handlerMappings) {
+        this.webMvcProperties = webMvcProperties;
+        this.handlerMappings = handlerMappings;
+        this.methodResolver = methodResolver;
+        this.contextPath = servletContext
+                .map(ServletContext::getContextPath)
+                .orElse(ROOT);
+    }
 
-  @Override
-  public List<RequestHandler> requestHandlers() {
-    return nullToEmptyList(handlerMappings).stream()
-        .filter(requestMappingInfoHandlerMapping ->
-            !("org.springframework.integration.http.inbound.IntegrationRequestMappingHandlerMapping"
-                  .equals(requestMappingInfoHandlerMapping.getClass()
-                      .getName())))
-        .map(toMappingEntries())
-        .flatMap((entries -> StreamSupport.stream(entries.spliterator(), false)))
-        .map(toRequestHandler())
-        .sorted(byPatternsCondition())
-        .collect(toList());
-  }
+    @Override
+    public List<RequestHandler> requestHandlers() {
+        return nullToEmptyList(handlerMappings).stream()
+                .filter(requestMappingInfoHandlerMapping -> !Objects.equals(INTEGRATION_REQUEST_MAPPING_CLASS_NAME,
+                        requestMappingInfoHandlerMapping.getClass().getName()))
+                .map(toMappingEntries())
+                .flatMap((entries -> StreamSupport.stream(entries.spliterator(), false)))
+                .map(toRequestHandler())
+                .sorted(byPatternsCondition())
+                .collect(toList());
+    }
 
-  private Function<RequestMappingInfoHandlerMapping,
-      Iterable<Map.Entry<RequestMappingInfo, HandlerMethod>>> toMappingEntries() {
-    return input -> input.getHandlerMethods()
-        .entrySet();
-  }
+    private Function<RequestMappingInfoHandlerMapping,
+            Iterable<Map.Entry<RequestMappingInfo, HandlerMethod>>> toMappingEntries() {
+        return input -> input.getHandlerMethods()
+                .entrySet();
+    }
 
-  private Function<Map.Entry<RequestMappingInfo, HandlerMethod>, RequestHandler> toRequestHandler() {
-    return input -> new WebMvcRequestHandler(
-        contextPath,
-        methodResolver,
-        input.getKey(),
-        input.getValue());
-  }
+    private Function<Map.Entry<RequestMappingInfo, HandlerMethod>, RequestHandler> toRequestHandler() {
+        return input -> new WebMvcRequestHandler(
+                webMvcProperties,
+                contextPath,
+                methodResolver,
+                input.getKey(),
+                input.getValue());
+    }
 }

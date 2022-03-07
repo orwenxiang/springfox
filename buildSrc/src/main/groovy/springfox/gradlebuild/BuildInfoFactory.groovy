@@ -17,7 +17,7 @@ class BuildInfoFactory {
   BuildInfo create(Project project) {
     ReleaseType releaseType = releaseType(project)
     boolean dryRun = dryRun(project)
-    def isReleaseBuild = project.gradle.startParameter.taskNames.contains("release")
+    def isReleaseBuild = true
 
     SemanticVersion buildVersion = versioningStrategy.buildVersion(releaseType, isReleaseBuild)
     project.logger.lifecycle("[RELEASE] current version: ${versioningStrategy.current(project)}, " +

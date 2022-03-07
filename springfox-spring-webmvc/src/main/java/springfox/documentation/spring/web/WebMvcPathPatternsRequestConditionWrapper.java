@@ -19,7 +19,7 @@
 
 package springfox.documentation.spring.web;
 
-import org.springframework.web.servlet.mvc.condition.PatternsRequestCondition;
+import org.springframework.web.servlet.mvc.condition.PathPatternsRequestCondition;
 
 import java.util.Collections;
 import java.util.Set;
@@ -28,15 +28,15 @@ import java.util.stream.Collectors;
 import static springfox.documentation.spring.web.paths.Paths.maybeChompLeadingSlash;
 import static springfox.documentation.spring.web.paths.Paths.maybeChompTrailingSlash;
 
-public class WebMvcPatternsRequestConditionWrapper
-        implements springfox.documentation.spring.wrapper.PatternsRequestCondition<PatternsRequestCondition> {
+public class WebMvcPathPatternsRequestConditionWrapper
+        implements springfox.documentation.spring.wrapper.PatternsRequestCondition<PathPatternsRequestCondition> {
 
     private final String contextPath;
-    private final PatternsRequestCondition condition;
+    private final PathPatternsRequestCondition condition;
 
-    public WebMvcPatternsRequestConditionWrapper(
+    public WebMvcPathPatternsRequestConditionWrapper(
             String contextPath,
-            PatternsRequestCondition condition) {
+            PathPatternsRequestCondition condition) {
 
         this.contextPath = contextPath;
         this.condition = condition;
@@ -44,11 +44,10 @@ public class WebMvcPatternsRequestConditionWrapper
 
     @Override
     public springfox.documentation.spring.wrapper.PatternsRequestCondition combine(
-            springfox.documentation.spring.wrapper.PatternsRequestCondition<PatternsRequestCondition> other) {
-        if (other instanceof WebMvcPatternsRequestConditionWrapper && !this.equals(other)) {
-            return new WebMvcPatternsRequestConditionWrapper(
-                    contextPath,
-                    condition.combine(((WebMvcPatternsRequestConditionWrapper) other).condition));
+            springfox.documentation.spring.wrapper.PatternsRequestCondition<PathPatternsRequestCondition> other) {
+        if (other instanceof WebMvcPathPatternsRequestConditionWrapper && !this.equals(other)) {
+            return new WebMvcPathPatternsRequestConditionWrapper(contextPath,
+                    condition.combine(((WebMvcPathPatternsRequestConditionWrapper) other).condition));
         }
         return this;
     }
@@ -59,15 +58,16 @@ public class WebMvcPatternsRequestConditionWrapper
             return Collections.emptySet();
         }
         return this.condition.getPatterns().stream()
-                .map(p -> String.format("%s/%s", maybeChompTrailingSlash(contextPath), maybeChompLeadingSlash(p)))
+                .map(p -> String.format("%s/%s", maybeChompTrailingSlash(contextPath),
+                        maybeChompLeadingSlash(p.getPatternString())))
                 .collect(Collectors.toSet());
     }
 
 
     @Override
     public boolean equals(Object o) {
-        if (o instanceof WebMvcPatternsRequestConditionWrapper) {
-            return this.condition.equals(((WebMvcPatternsRequestConditionWrapper) o).condition);
+        if (o instanceof WebMvcPathPatternsRequestConditionWrapper) {
+            return this.condition.equals(((WebMvcPathPatternsRequestConditionWrapper) o).condition);
         }
         return false;
     }
